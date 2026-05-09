@@ -1,0 +1,35 @@
+{
+  "FileVersion": 3,
+  "Version": 1,
+  "VersionName": "1.0.0",
+  "FriendlyName": "VPBroadcast",
+  "Description": "AI-Driven Virtual Production Broadcast Control — Schema Scanner, UDP Receiver, and Stage Visual Proxy for real-time stage parameter control.",
+  "Category": "Virtual Production",
+  "CreatedBy": "Broadcast_control Team",
+  "CreatedByURL": "",
+  "DocsURL": "",
+  "MarketplaceURL": "",
+  "SupportURL": "",
+  "EngineVersion": "5.1.0",
+  "CanContainContent": true,
+  "IsBetaVersion": false,
+  "IsExperimentalVersion": false,
+  "Installed": false,
+  "Modules": [
+    {
+      "Name": "VPBroadcast",
+      "Type": "Runtime",
+      "LoadingPhase": "Default"
+    }
+  ],
+  "Plugins": [
+    {
+      "Name": "MediaCompositing",
+      "Enabled": true
+    },
+    {
+      "Name": "Niagara",
+      "Enabled": true
+    }
+  ]
+}

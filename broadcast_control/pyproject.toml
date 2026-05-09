@@ -1,0 +1,18 @@
+[project]
+name = "broadcast-control"
+version = "1.0.0"
+description = "虚拟制片播控中台 — Stage Schema Registry + UDP Live Broadcaster + MCP Tools"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "mcp>=1.0.0",
+    "pydantic>=2.0.0",
+    "websockets>=13.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+]
