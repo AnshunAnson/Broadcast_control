@@ -28,6 +28,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "VPBroadcast|Agent")
 	void TriggerEffectByName(FName EffectName);
 
+	void ReceiveParameterChanged(FName ParamName, float Value);
+
 	// ==================== 预设效果参数（可为空，美术可在蓝图子类中自由增删） ====================
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VPAgent|透明度",
@@ -67,7 +69,7 @@ public:
 	void OnParametersChanged(const TMap<FName, float>& ChangedParams);
 
 protected:
-	void DetectAndApplyChanges();
+	void DetectEventEdge();
 	void SpawnDefaultEffect();
 
 	void SyncToMPC(FName ParamName, float Value);
@@ -79,8 +81,5 @@ protected:
 
 	TMap<UStaticMeshComponent*, TArray<UMaterialInstanceDynamic*>> CachedMIDs;
 
-	TMap<FName, float> PreviousValues;
-	FLinearColor PreviousColor;
-
-	bool bPreviousTrigger;
+	bool bPreviousTrigger = false;
 };

@@ -1,6 +1,7 @@
 #include "VPBroadcastSubsystem.h"
 
 #include "VPAgentMetadata.h"
+#include "VPAgentComponent.h"
 #include "VPStageEffectActor.h"
 #include "Engine/GameInstance.h"
 #include "Engine/World.h"
@@ -235,6 +236,15 @@ void UVPBroadcastSubsystem::ApplyControlCommand(int32 ParamHash, float Value)
 		EffectActor->ReceiveOnParameterChanged(FName(*Property->GetName()), Value);
 		EffectActor->ReceiveOnAnyAgentParameterChanged();
 		EffectActor->ApplyAllParameters();
+	}
+	else if (AActor* OwnerActor = Cast<AActor>(Target))
+	{
+		TArray<UVPAgentComponent*> AgentComponents;
+		OwnerActor->GetComponents<UVPAgentComponent>(AgentComponents);
+		for (UVPAgentComponent* Agent : AgentComponents)
+		{
+			Agent->ReceiveParameterChanged(FName(*Property->GetName()), Value);
+		}
 	}
 }
 

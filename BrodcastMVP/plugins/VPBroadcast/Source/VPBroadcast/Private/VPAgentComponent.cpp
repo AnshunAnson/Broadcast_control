@@ -12,8 +12,7 @@
 #include "NiagaraSystem.h"
 
 UVPAgentComponent::UVPAgentComponent()
-	: PreviousColor(FLinearColor::White)
-	, bPreviousTrigger(false)
+	: bPreviousTrigger(false)
 {
 	PrimaryComponentTick.bCanEverTick = true;
 	PrimaryComponentTick.TickGroup = TG_PostUpdateWork;
@@ -23,10 +22,6 @@ void UVPAgentComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
-	PreviousValues.Add(TEXT("Agent_Opacity"), Agent_Opacity);
-	PreviousValues.Add(TEXT("Agent_Emissive"), Agent_Emissive);
-	PreviousValues.Add(TEXT("Agent_Scale"), Agent_Scale);
-	PreviousColor = Agent_Color;
 	bPreviousTrigger = false;
 
 	if (MaterialParameterCollection && GetWorld())
@@ -48,35 +43,11 @@ void UVPAgentComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	DetectAndApplyChanges();
+	DetectEventEdge();
 }
 
-void UVPAgentComponent::DetectAndApplyChanges()
+void UVPAgentComponent::DetectEventEdge()
 {
-	bool bAnyChanged = false;
-	TMap<FName, float> ChangedParams;
-
-	auto CheckAndUpdate = [&](FName ParamName, float CurrentValue)
-	{
-		float* Prev = PreviousValues.Find(ParamName);
-		if (!Prev || !FMath::IsNearlyEqual(*Prev, CurrentValue))
-		{
-			ChangedParams.Add(ParamName, CurrentValue - (Prev ? *Prev : 0.0f));
-			PreviousValues.Add(ParamName, CurrentValue);
-			bAnyChanged = true;
-		}
-	};
-
-	CheckAndUpdate(TEXT("Agent_Opacity"), Agent_Opacity);
-	CheckAndUpdate(TEXT("Agent_Emissive"), Agent_Emissive);
-	CheckAndUpdate(TEXT("Agent_Scale"), Agent_Scale);
-
-	if (!PreviousColor.Equals(Agent_Color, 0.001f))
-	{
-		PreviousColor = Agent_Color;
-		bAnyChanged = true;
-	}
-
 	bool bTriggerNow = Event_Trigger != 0;
 	if (bTriggerNow && !bPreviousTrigger)
 	{
@@ -84,12 +55,17 @@ void UVPAgentComponent::DetectAndApplyChanges()
 		SpawnDefaultEffect();
 	}
 	bPreviousTrigger = bTriggerNow;
+}
 
-	if (bAnyChanged)
-	{
-		ApplyAllParameters();
-		OnParametersChanged(ChangedParams);
-	}
+void UVPAgentComponent::ReceiveParameterChanged(FName ParamName, float Value)
+{
+	ApplyAllParameters();
+
+	TMap<FName, float> ChangedParams;
+	ChangedParams.Add(ParamName, Value);
+	OnParametersChanged(ChangedParams);
+
+	DetectEventEdge();
 }
 
 void UVPAgentComponent::SpawnDefaultEffect()
