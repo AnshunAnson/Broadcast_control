@@ -200,8 +200,6 @@ void UVPBroadcastSubsystem::ApplyControlCommand(int32 ParamHash, float Value)
 		return;
 	}
 
-	bool bIsEventProperty = false;
-
 	if (FFloatProperty* FloatProp = CastField<FFloatProperty>(Property))
 	{
 		FloatProp->SetPropertyValue_InContainer(Target, Value);
@@ -213,7 +211,6 @@ void UVPBroadcastSubsystem::ApplyControlCommand(int32 ParamHash, float Value)
 	else if (FByteProperty* ByteProp = CastField<FByteProperty>(Property))
 	{
 		ByteProp->SetPropertyValue_InContainer(Target, static_cast<uint8>(FMath::RoundToInt(Value)));
-		bIsEventProperty = true;
 	}
 	else if (FIntProperty* IntProp = CastField<FIntProperty>(Property))
 	{
@@ -228,14 +225,16 @@ void UVPBroadcastSubsystem::ApplyControlCommand(int32 ParamHash, float Value)
 		return;
 	}
 
+	FName ParamName(*Property->GetName());
+
 	UE_LOG(LogTemp, Verbose, TEXT("VPBroadcastSubsystem: Set %s = %f on %s"),
 		*Property->GetName(), Value, *Target->GetName());
 
 	if (AVPStageEffectActor* EffectActor = Cast<AVPStageEffectActor>(Target))
 	{
-		EffectActor->ReceiveOnParameterChanged(FName(*Property->GetName()), Value);
+		EffectActor->OnControlCommandReceived.Broadcast(ParamName, Value);
+		EffectActor->ReceiveOnParameterChanged(ParamName, Value);
 		EffectActor->ReceiveOnAnyAgentParameterChanged();
-		EffectActor->ApplyAllParameters();
 	}
 	else if (AActor* OwnerActor = Cast<AActor>(Target))
 	{
@@ -243,7 +242,9 @@ void UVPBroadcastSubsystem::ApplyControlCommand(int32 ParamHash, float Value)
 		OwnerActor->GetComponents<UVPAgentComponent>(AgentComponents);
 		for (UVPAgentComponent* Agent : AgentComponents)
 		{
-			Agent->ReceiveParameterChanged(FName(*Property->GetName()), Value);
+			Agent->OnControlCommandReceived.Broadcast(ParamName, Value);
+			Agent->ReceiveOnParameterChanged(ParamName, Value);
+			Agent->ReceiveOnAnyParameterChanged();
 		}
 	}
 }

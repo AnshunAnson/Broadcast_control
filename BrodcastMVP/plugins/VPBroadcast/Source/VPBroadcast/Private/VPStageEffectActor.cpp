@@ -54,13 +54,17 @@ void AVPStageEffectActor::Tick(float DeltaTime)
 
 	if (bFireworkNow && !bPreviousFirework)
 	{
-		TriggerFirework();
+		FName EventName(TEXT("Event_Firework"));
+		OnEventTriggered.Broadcast(EventName);
+		ReceiveOnEventTriggered(EventName);
 	}
 	bPreviousFirework = bFireworkNow;
 
 	if (bTransitionNow && !bPreviousTransition)
 	{
-		TriggerSceneTransition();
+		FName EventName(TEXT("Event_Transition"));
+		OnEventTriggered.Broadcast(EventName);
+		ReceiveOnEventTriggered(EventName);
 	}
 	bPreviousTransition = bTransitionNow;
 }
@@ -154,6 +158,25 @@ void AVPStageEffectActor::SpawnNiagaraAtActor(UNiagaraSystem* System, FVector Of
 		GetWorld(),
 		System,
 		GetActorLocation() + Offset,
+		FRotator::ZeroRotator,
+		FVector(1.0f),
+		true,
+		true,
+		ENCPoolMethod::AutoRelease
+	);
+}
+
+void AVPStageEffectActor::SpawnNiagaraAtLocation(UNiagaraSystem* System, FVector Location, FVector Offset)
+{
+	if (!System || !GetWorld())
+	{
+		return;
+	}
+
+	UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+		GetWorld(),
+		System,
+		Location + Offset,
 		FRotator::ZeroRotator,
 		FVector(1.0f),
 		true,

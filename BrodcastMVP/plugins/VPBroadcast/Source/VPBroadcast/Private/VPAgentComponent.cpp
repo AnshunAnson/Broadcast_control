@@ -1,13 +1,11 @@
 #include "VPAgentComponent.h"
 
 #include "Components/PointLightComponent.h"
-#include "Components/SpotLightComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "GameFramework/Actor.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Materials/MaterialParameterCollection.h"
 #include "Materials/MaterialParameterCollectionInstance.h"
-#include "NiagaraComponent.h"
 #include "NiagaraFunctionLibrary.h"
 #include "NiagaraSystem.h"
 
@@ -51,45 +49,12 @@ void UVPAgentComponent::DetectEventEdge()
 	bool bTriggerNow = Event_Trigger != 0;
 	if (bTriggerNow && !bPreviousTrigger)
 	{
+		FName EventName(TEXT("Event_Trigger"));
+		OnEventTriggered.Broadcast(EventName);
+		ReceiveOnEventTriggered(EventName);
 		OnEffectTriggered(TEXT("Event_Trigger"));
-		SpawnDefaultEffect();
 	}
 	bPreviousTrigger = bTriggerNow;
-}
-
-void UVPAgentComponent::ReceiveParameterChanged(FName ParamName, float Value)
-{
-	ApplyAllParameters();
-
-	TMap<FName, float> ChangedParams;
-	ChangedParams.Add(ParamName, Value);
-	OnParametersChanged(ChangedParams);
-
-	DetectEventEdge();
-}
-
-void UVPAgentComponent::SpawnDefaultEffect()
-{
-	if (!DefaultEffectAsset)
-	{
-		return;
-	}
-
-	AActor* Owner = GetOwner();
-	if (!Owner)
-	{
-		return;
-	}
-
-	UNiagaraFunctionLibrary::SpawnSystemAtLocation(
-		GetWorld(),
-		DefaultEffectAsset,
-		Owner->GetActorLocation(),
-		FRotator::ZeroRotator,
-		FVector(1.0f),
-		true, true,
-		ENCPoolMethod::AutoRelease
-	);
 }
 
 void UVPAgentComponent::ApplyAllParameters()
@@ -166,8 +131,34 @@ void UVPAgentComponent::SyncAllToMPC()
 	MPCInstance->SetVectorParameterValue(TEXT("Agent_Color"), Agent_Color);
 }
 
+void UVPAgentComponent::SpawnDefaultEffect()
+{
+	if (!DefaultEffectAsset)
+	{
+		return;
+	}
+
+	AActor* Owner = GetOwner();
+	if (!Owner)
+	{
+		return;
+	}
+
+	UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+		GetWorld(),
+		DefaultEffectAsset,
+		Owner->GetActorLocation(),
+		FRotator::ZeroRotator,
+		FVector(1.0f),
+		true, true,
+		ENCPoolMethod::AutoRelease
+	);
+}
+
 void UVPAgentComponent::TriggerEffectByName(FName EffectName)
 {
 	OnEffectTriggered(EffectName.ToString());
+	OnEventTriggered.Broadcast(EffectName);
+	ReceiveOnEventTriggered(EffectName);
 	SpawnDefaultEffect();
 }

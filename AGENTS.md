@@ -20,17 +20,27 @@
 
 ### 系统唯一职责
 
-前端/AI 调参 → Python UDP 发包 → UE5 接收 → 设置属性 → 立即应用
+前端/AI 调参 → Python UDP 发包 → UE5 设值 → 触发蓝图事件 → 蓝图执行
+
+### 核心设计原则
+
+**C++ 只管"传值"，蓝图管"执行"。** 和 Widget 滑条的 `On Value Changed` 一样。
+
+- C++ 框架：接收 UDP → 反射设值 → 触发蓝图事件
+- 蓝图：在事件中决定如何响应（调用默认行为或自定义逻辑）
+- `ApplyAllParameters()` 等工具函数由蓝图手动调用，C++ 不自动执行
 
 ### 核心约束
 
 | 约束 | 说明 |
 |------|------|
 | UE5 是参数唯一源头 | 参数名、类型、默认值、范围、标签全部由 UE5 VPAgent\| 属性定义 |
+| **AI 禁止直接控场** | **AI 绝对不能自动执行任何控场操作，只能根据用户需求组织播控逻辑** |
 | AI 只做功能封装 | AI 读取 UE5 参数 → 组合为 Feature → 参数值用 UE5 默认值 |
 | AI 不创造参数值 | 默认值来自 UE5，范围来自 UE5，AI 只负责命名和组织 |
 | 单路径数据流 | 前端/AI → Python UDP → UE5，无旁路 |
 | 8字节 UDP 协议 | uint32 FNV-1a Hash + float32 Value，大端序 |
+| 事件驱动执行 | C++ 不自动执行业务逻辑，蓝图在事件中决定做什么 |
 
 ### 不做什么
 
@@ -39,6 +49,7 @@
 - 不做参数持久化（所有状态在内存中，重启后从 UE5 重新上报）
 - 不做 UE5 编辑器内 UI（控制面板在 Web 前端）
 - 不引入消息队列（WebSocket + UDP 已满足实时性需求）
+- C++ 不自动执行业务逻辑（所有执行由蓝图事件驱动）
 
 ### 数据流边界
 
@@ -57,13 +68,14 @@ Web ──WebSocket──→ Python (双向交互)
 2. **compose_feature 必须校验** param_names 中的每个参数是否存在于 Schema
 3. **execute_stage_cue 的 target 默认 ue5**，除非用户明确要求推前端
 4. **不要连续高频调用 set_float_parameter**，UDP 无拥塞控制，可能丢包
+5. **AI 不能自动控场**：任何实际播控操作必须由用户或前端/AI 经用户授权后触发，AI 只能组织逻辑，不能自行决定什么时候发送什么参数，必须完全听从用户指令。
 
 ### 代码修改规则
 
 1. **UE5 C++ 修改后必须编译验证**：使用上方编译命令
 2. **Python 修改后运行测试**：`python tests/test_core.py`
 3. **前端修改后检查 TypeScript**：`cd webview_ui && npx tsc --noEmit`
-4. **架构变动必须更新 README.md**
+4. **架构变动必须更新 README.md`
 5. **不引入新依赖** 除非用户明确要求
 
 ### 文件修改边界
@@ -83,9 +95,9 @@ Web ──WebSocket──→ Python (双向交互)
 | 文件 | 职责 |
 |------|------|
 | `VPBroadcastTypes.h` | FNV-1a Hash + 常量 + 类型定义 |
-| `VPBroadcastSubsystem.h/.cpp` | 中枢：UDP接收 + 反射设置 + Schema上报 |
-| `VPStageEffectActor.h/.cpp` | 舞台效果Actor：全息+灯光+事件 |
-| `VPAgentComponent.h/.cpp` | 通用Agent组件：蓝图可扩展 |
+| `VPBroadcastSubsystem.h/.cpp` | 中枢：UDP接收 + 反射设值 + 触发蓝图事件 + Schema上报 |
+| `VPAgentComponent.h/.cpp` | 通用Agent组件（推荐）：事件驱动，蓝图执行 |
+| `VPStageEffectActor.h/.cpp` | 舞台效果Actor（示例）：全息+灯光+事件 |
 | `VPAgentMetadata.h/.cpp` | Schema扫描器 |
 | `VPStageUDPReceiver.h/.cpp` | UDP接收线程 |
 | `models.py` | Pydantic模型 + Hash + UDP打包 |
@@ -94,3 +106,26 @@ Web ──WebSocket──→ Python (双向交互)
 | `main.py` | FastAPI HTTP + WebSocket |
 | `udp_sender.py` | UDP异步发送器 |
 | `config.py` | 配置 |
+
+## UE5 插件蓝图事件速查
+
+### VPAgentComponent（推荐）
+
+| 事件 | 类型 | 参数 | 说明 |
+|------|------|------|------|
+| `On Control Command` | Bind Event | `(ParameterName, Value)` | 任何蓝图可绑定 |
+| `On Event Triggered` | Bind Event | `(EventName)` | 事件上升沿 |
+| `On Parameter Changed` | Override | `(ParameterName, NewValue)` | 蓝图子类覆写 |
+| `On Any Parameter Changed` | Override | 无 | 任何参数变化 |
+| `On Event Triggered` | Override | `(EventName)` | 蓝图子类覆写 |
+| `On Effect Triggered` | Override | `(EffectName)` | 蓝图子类覆写 |
+
+### VPStageEffectActor（示例）
+
+| 事件 | 类型 | 参数 | 说明 |
+|------|------|------|------|
+| `On Control Command` | Bind Event | `(ParameterName, Value)` | 任何蓝图可绑定 |
+| `On Event Triggered` | Bind Event | `(EventName)` | 事件上升沿 |
+| `On Parameter Changed` | Override | `(ParameterName, NewValue)` | 蓝图子类覆写 |
+| `On Any Parameter Changed` | Override | 无 | 任何参数变化 |
+| `On Event Triggered` | Override | `(EventName)` | 蓝图子类覆写 |

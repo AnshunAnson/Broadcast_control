@@ -8,6 +8,10 @@ class UMaterialParameterCollection;
 class UMaterialParameterCollectionInstance;
 class UNiagaraSystem;
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnAgentControlCommand, FName, ParameterName, float, Value);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnAgentEventTriggered, FName, EventName);
+
 UCLASS(ClassGroup = VPBroadcast, Blueprintable, BlueprintType,
 	meta = (BlueprintSpawnableComponent, DisplayName = "VP Stage Agent"))
 class VPBROADCAST_API UVPAgentComponent : public UActorComponent
@@ -22,15 +26,47 @@ public:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType,
 		FActorComponentTickFunction* ThisTickFunction) override;
 
+	// ==================== 蓝图可调用的工具函数 ====================
+
 	UFUNCTION(BlueprintCallable, Category = "VPBroadcast|Agent")
 	void ApplyAllParameters();
 
 	UFUNCTION(BlueprintCallable, Category = "VPBroadcast|Agent")
+	void SyncToActorComponents();
+
+	UFUNCTION(BlueprintCallable, Category = "VPBroadcast|Agent")
+	void SyncAllToMPC();
+
+	UFUNCTION(BlueprintCallable, Category = "VPBroadcast|Agent")
 	void TriggerEffectByName(FName EffectName);
 
-	void ReceiveParameterChanged(FName ParamName, float Value);
+	UFUNCTION(BlueprintCallable, Category = "VPBroadcast|Agent")
+	void SpawnDefaultEffect();
 
-	// ==================== 预设效果参数（可为空，美术可在蓝图子类中自由增删） ====================
+	// ==================== 蓝图事件（和 Widget 滑条 OnValueChanged 一样） ====================
+
+	UPROPERTY(BlueprintAssignable, Category = "VPBroadcast|Events", meta = (DisplayName = "On Control Command"))
+	FOnAgentControlCommand OnControlCommandReceived;
+
+	UPROPERTY(BlueprintAssignable, Category = "VPBroadcast|Events", meta = (DisplayName = "On Event Triggered"))
+	FOnAgentEventTriggered OnEventTriggered;
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "VPBroadcast|Events", meta = (DisplayName = "On Parameter Changed"))
+	void ReceiveOnParameterChanged(const FName& ParameterName, float NewValue);
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "VPBroadcast|Events", meta = (DisplayName = "On Any Parameter Changed"))
+	void ReceiveOnAnyParameterChanged();
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "VPBroadcast|Events", meta = (DisplayName = "On Event Triggered"))
+	void ReceiveOnEventTriggered(const FName& EventName);
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "VPBroadcast|Agent")
+	void OnEffectTriggered(const FString& EffectName);
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "VPBroadcast|Agent")
+	void OnParametersChanged(const TMap<FName, float>& ChangedParams);
+
+	// ==================== 预设效果参数 ====================
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VPAgent|透明度",
 		meta = (ClampMin = "0.0", ClampMax = "1.0", VPA_Tags = "透明度,Alpha,淡入淡出,Opacity", VPA_Description = "控制所属 Actor 的整体透明度"))
@@ -52,7 +88,7 @@ public:
 		meta = (VPA_Tags = "触发,Trigger,Effect,特效", VPA_Description = "触发特效事件（在蓝图中覆写 OnEffectTriggered 响应）"))
 	uint8 Event_Trigger = 0;
 
-	// ==================== 资源配置（美术在编辑器中拖入资产即可） ====================
+	// ==================== 资源配置 ====================
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VPBroadcast|Resources")
 	TObjectPtr<UMaterialParameterCollection> MaterialParameterCollection;
@@ -60,21 +96,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VPBroadcast|Resources")
 	TObjectPtr<UNiagaraSystem> DefaultEffectAsset;
 
-	// ==================== 蓝图可覆写的事件 ====================
-
-	UFUNCTION(BlueprintImplementableEvent, Category = "VPBroadcast|Agent")
-	void OnEffectTriggered(const FString& EffectName);
-
-	UFUNCTION(BlueprintImplementableEvent, Category = "VPBroadcast|Agent")
-	void OnParametersChanged(const TMap<FName, float>& ChangedParams);
-
 protected:
 	void DetectEventEdge();
-	void SpawnDefaultEffect();
 
 	void SyncToMPC(FName ParamName, float Value);
-	void SyncAllToMPC();
-	void SyncToActorComponents();
 
 	UPROPERTY(Transient)
 	TObjectPtr<UMaterialParameterCollectionInstance> MPCInstance;

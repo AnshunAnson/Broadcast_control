@@ -13,6 +13,10 @@ class UNiagaraComponent;
 class USpotLightComponent;
 class UPointLightComponent;
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnStageControlCommand, FName, ParameterName, float, Value);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnStageEventTriggered, FName, EventName);
+
 UCLASS(Blueprintable, BlueprintType, Category = "VPBroadcast")
 class VPBROADCAST_API AVPStageEffectActor : public AActor
 {
@@ -28,8 +32,16 @@ public:
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
 
+	// ==================== 蓝图可调用的工具函数 ====================
+
 	UFUNCTION(BlueprintCallable, Category = "VPBroadcast|Effect")
 	void ApplyAllParameters();
+
+	UFUNCTION(BlueprintCallable, Category = "VPBroadcast|Effect")
+	void ApplyARHologramParams();
+
+	UFUNCTION(BlueprintCallable, Category = "VPBroadcast|Effect")
+	void ApplyAmbientLightParams();
 
 	UFUNCTION(BlueprintCallable, Category = "VPBroadcast|Effect")
 	void TriggerFirework();
@@ -37,13 +49,25 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "VPBroadcast|Effect")
 	void TriggerSceneTransition();
 
-	// ==================== 蓝图事件 ====================
+	UFUNCTION(BlueprintCallable, Category = "VPBroadcast|Effect")
+	void SpawnNiagaraAtLocation(UNiagaraSystem* System, FVector Location, FVector Offset = FVector::ZeroVector);
 
-	UFUNCTION(BlueprintImplementableEvent, Category = "VPBroadcast|Events", meta = (DisplayName = "On Any Agent Parameter Changed"))
-	void ReceiveOnAnyAgentParameterChanged();
+	// ==================== 蓝图事件（和 Widget 滑条 OnValueChanged 一样） ====================
+
+	UPROPERTY(BlueprintAssignable, Category = "VPBroadcast|Events", meta = (DisplayName = "On Control Command"))
+	FOnStageControlCommand OnControlCommandReceived;
+
+	UPROPERTY(BlueprintAssignable, Category = "VPBroadcast|Events", meta = (DisplayName = "On Event Triggered"))
+	FOnStageEventTriggered OnEventTriggered;
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "VPBroadcast|Events", meta = (DisplayName = "On Parameter Changed"))
 	void ReceiveOnParameterChanged(const FName& ParameterName, float NewValue);
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "VPBroadcast|Events", meta = (DisplayName = "On Any Parameter Changed"))
+	void ReceiveOnAnyAgentParameterChanged();
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "VPBroadcast|Events", meta = (DisplayName = "On Event Triggered"))
+	void ReceiveOnEventTriggered(const FName& EventName);
 
 	// ==================== AR 全息投影参数 ====================
 
@@ -110,8 +134,6 @@ public:
 	TObjectPtr<UNiagaraSystem> TransitionEffect;
 
 protected:
-	void ApplyARHologramParams();
-	void ApplyAmbientLightParams();
 	void SpawnNiagaraAtActor(UNiagaraSystem* System, FVector Offset = FVector::ZeroVector);
 
 	UPROPERTY(Transient)
